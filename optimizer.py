@@ -225,52 +225,74 @@ def run_optimization_cycle(force: bool = False) -> None:
     best_model, metrics, best_params = optimize_hyperparameters(X_train, y_train, X_test, y_test)
     candidate_roc_auc = metrics.get("roc_auc", 0.0)
 
-    # --- 4. NEW: DEDUPLICATION & REGISTRY CHECK ---
+    # --- 4. DEDUPLICATION & REGISTRY CHECK (GATE 1) ---
     logger.info("Checking model registry for identical performance matches...")
     
-    # Fetch current active model to check for immediate redundancy
-    current_deployment = database.get_current_deployment()
-    
-    if current_deployment and abs(candidate_roc_auc - current_deployment["roc_auc"]) < 1e-5:
-        logger.info(f"🚫 Optimization generated identical results to the active model (Version {current_deployment['version_number']}).")
-        logger.info("Skipping file creation and retaining current deployment.")
+    # Safely query the database to see if this exact performance profile already exists
+    with database.get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT version_number FROM model_versions WHERE ABS(roc_auc - ?) < 1e-5", 
+            (candidate_roc_auc,)
+        )
+        match = cursor.fetchone()
+        
+    if match:
+        logger.warning(
+            f"🚫 Retraining Aborted: Calculated ROC-AUC ({candidate_roc_auc:.5f}) "
+            f"matches an existing registered version (Version {match['version_number']})."
+        )
+        logger.info("Skipping file creation and database registration to avoid clutter.")
         logger.info("=== Optimizer Cycle Complete ===")
         return
 
-    # Optional: Check historical models if database.get_all_models() is available
-    # to see if we can recycle an older historical model version instead of creating a new folder.
-    try:
-        if hasattr(database, 'get_all_models'):
-            all_models = database.get_all_models()
-            for model in all_models:
-                if abs(candidate_roc_auc - model["roc_auc"]) < 1e-5:
-                    logger.info(f"♻️ Found an older identical model match in history: Version {model['version_number']}.")
-                    logger.info("Re-promoting historical model rather than generating duplicate files.")
-                    
-                    # Direct promotion of existing version ID
-                    database.promote_model_to_production(model["id"])
-                    trigger_edge_reload()
-                    logger.info("=== Optimizer Cycle Complete ===")
-                    return
-    except Exception as e:
-        logger.warning(f"Could not scan historical models: {e}. Falling back to standard versioning.")
-
-    # --- 5. VERSION AND REGISTER NEW CANDIDATE (Only if truly unique) ---
+    # --- 5. EVALUATE PERFORMANCE BEFORE PROMOTION (GATE 2) ---
     next_version = database.get_next_version_number()
-    bundle_path = ml_pipeline.save_model_bundle(next_version, best_model, encoder, X_train, metrics, best_params)
+    current_deployment = database.get_current_deployment()
     
-    candidate_id = database.register_model_version(
-        version_number=next_version,
-        model_path=bundle_path,
-        metrics=metrics
-    )
-    
-    # 6. Evaluate for Promotion
-    is_promoted = compare_and_promote(candidate_id, metrics)
-    
-    # 7. Deploy to Edge
-    if is_promoted:
+    # Determine if this model explicitly earns active status
+    is_superior = False
+    if not current_deployment:
+        logger.info("No active deployment found. Champion status granted by default.")
+        is_superior = True
+    elif candidate_roc_auc > current_deployment["roc_auc"]:
+        logger.info(f"🏆 Superior Model Found! ROC-AUC: {candidate_roc_auc:.4f} > Current: {current_deployment['roc_auc']:.4f}")
+        is_superior = True
+
+    # --- 6. CONDITIONAL REGISTRATION AND DISK STORAGE ---
+    if is_superior:
+        # Save production artifact bundle
+        bundle_path = ml_pipeline.save_model_bundle(next_version, best_model, encoder, X_train, metrics, best_params)
+        
+        candidate_id = database.register_model_version(
+            version_number=next_version,
+            model_path=bundle_path,
+            metrics=metrics
+        )
+        
+        # Promote and hot-swap the edge node API live
+        database.promote_model_to_production(candidate_id)
         trigger_edge_reload()
+        logger.info(f"🚀 Version {next_version} successfully deployed to live edge production.")
+    else:
+        logger.info(f"📦 Unique but non-improving model. Preserving as an offline 'candidate'.")
+        
+        # Save data bundle to disk normally
+        bundle_path = ml_pipeline.save_model_bundle(next_version, best_model, encoder, X_train, metrics, best_params)
+        
+        candidate_id = database.register_model_version(
+            version_number=next_version,
+            model_path=bundle_path,
+            metrics=metrics
+        )
+        
+        # Force the database status flag to stay 'candidate' (skips production deployment completely)
+        with database.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE model_versions SET status = 'candidate' WHERE id = ?", (candidate_id,))
+            conn.commit()
+            
+        logger.info(f"Saved Version {next_version} into the registry safely flagged as a candidate.")
         
     logger.info("=== Optimizer Cycle Complete ===")
 
