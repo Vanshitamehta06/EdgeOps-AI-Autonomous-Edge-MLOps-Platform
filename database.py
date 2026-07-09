@@ -69,10 +69,14 @@ def register_model_version(version_number: int, model_path: str, metrics: Dict[s
     """
     Inserts a newly trained model's metadata and performance metrics into the registry.
     """
+    from datetime import datetime
+    # Programmatically capture the exact local system time at execution
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     query = """
         INSERT INTO model_versions 
-        (version_number, model_path, accuracy, precision_score, recall_score, f1_score, roc_auc)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (version_number, model_path, accuracy, precision_score, recall_score, f1_score, roc_auc, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
     values = (
         version_number,
@@ -81,7 +85,8 @@ def register_model_version(version_number: int, model_path: str, metrics: Dict[s
         metrics.get("precision", 0.0),
         metrics.get("recall", 0.0),
         metrics.get("f1", 0.0),
-        metrics.get("roc_auc", 0.0)
+        metrics.get("roc_auc", 0.0),
+        now_str  # Pass the explicit local timestamp string to SQLite
     )
 
     with get_db_connection() as conn:
@@ -100,6 +105,10 @@ def promote_model_to_production(model_id: int):
     """
     import sqlite3
     import config
+    from datetime import datetime
+
+    # Programmatically capture the exact local system time at execution
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     conn = sqlite3.connect(config.SQLITE_DB_PATH, timeout=30.0)
     cursor = conn.cursor()
@@ -109,21 +118,20 @@ def promote_model_to_production(model_id: int):
     row = cursor.fetchone()
     stable_id = row[0] if row else None
     
-    # 2. THE FIX: Use 'updated_at' to match the deployment_state schema
+    # 2. Swap out CURRENT_TIMESTAMP for parameter arguments
     update_query = """
         INSERT INTO deployment_state (id, current_model_id, stable_model_id, updated_at)
-        VALUES (1, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (1, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET 
             current_model_id = excluded.current_model_id,
             stable_model_id = excluded.stable_model_id,
-            updated_at = CURRENT_TIMESTAMP;
+            updated_at = excluded.updated_at;
     """
-    cursor.execute(update_query, (model_id, stable_id))
+    cursor.execute(update_query, (model_id, stable_id, now_str))
     
-    # 3. Update the statuses in the model_versions table
-    # (This table DOES use last_updated according to your schema)
+    # 3. Update status timestamps using the same local time coordinate
     cursor.execute("UPDATE model_versions SET status = 'archived' WHERE status = 'active'")
-    cursor.execute("UPDATE model_versions SET status = 'active', last_updated = CURRENT_TIMESTAMP WHERE id = ?", (model_id,))
+    cursor.execute("UPDATE model_versions SET status = 'active', last_updated = ? WHERE id = ?", (now_str, model_id))
     
     conn.commit()
     conn.close()
@@ -165,6 +173,9 @@ def rollback_deployment() -> bool:
     """
     Reverts the active production model to the stable fallback model.
     """
+    from datetime import datetime
+    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT stable_model_id FROM deployment_state WHERE id = 1")
@@ -176,17 +187,13 @@ def rollback_deployment() -> bool:
             
         stable_id = state["stable_model_id"]
         
-        # The old stable becomes current, and we set stable to NULL 
-        # (or we could keep a deeper history, but for this setup, we avoid a loop)
-#--------------------------------------------------------------------------------------------------------
-        # CORRECTED QUERY
+        # Swapped CURRENT_TIMESTAMP with structural parameter injection
         update_query = """
             UPDATE deployment_state 
-            SET current_model_id = ?, stable_model_id = NULL, updated_at = CURRENT_TIMESTAMP
+            SET current_model_id = ?, stable_model_id = NULL, updated_at = ?
             WHERE id = 1
         """
-#----------------------------------------------------------------------------------------------------------
-        cursor.execute(update_query, (stable_id,))
+        cursor.execute(update_query, (stable_id, now_str))
         conn.commit()
         
     logger.info(f"Rolled back production to model ID {stable_id}.")

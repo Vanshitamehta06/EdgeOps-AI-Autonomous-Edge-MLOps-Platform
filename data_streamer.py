@@ -5,7 +5,8 @@ Simulates live IoT telemetry from the factory floor.
 Injects artificial data drift (degrading machine conditions) and 
 triggers the automated MLOps pipeline to react.
 """
-
+import sqlite3
+from datetime import datetime, timedelta
 import time
 import logging
 import pandas as pd
@@ -55,6 +56,44 @@ def generate_live_batch(base_df: pd.DataFrame, batch_size: int = 500, inject_dri
 
     return live_batch
 
+def inject_mock_system_metrics():
+    """Generates realistic-looking hardware metrics so Grafana has data to visualize."""
+    try:
+        conn = sqlite3.connect(config.SQLITE_DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get the currently deployed model version
+        cursor.execute("SELECT current_model_id FROM deployment_state WHERE id = 1")
+        row = cursor.fetchone()
+        model_id = row[0] if row else 1
+
+        now = datetime.now()
+        
+        # Generate 20 data points stretching back over the last 10 minutes
+        for i in range(20, 0, -1):
+            timestamp = (now - timedelta(seconds=i*30)).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Generate realistic hardware noise
+            cpu = np.random.uniform(45.0, 85.0)
+            ram = np.random.uniform(50.0, 75.0)
+            latency = np.random.uniform(20.0, 150.0)
+            drift = np.random.uniform(0.0, 0.3)
+            reliability = np.random.uniform(90.0, 100.0)
+
+            cursor.execute("""
+                INSERT INTO system_metrics 
+                (model_version, cpu_usage, ram_usage, latency_ms, drift_score, reliability_score, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (model_id, cpu, ram, latency, drift, reliability, timestamp))
+            
+        conn.commit()
+        conn.close()
+        logger.info("📊 Injected 20 mock system metrics into SQLite for Grafana visualization.")
+    except Exception as e:
+        logger.error(f"Failed to inject mock metrics: {e}")
+
+
+
 def start_stream(cycles: int = 3, interval_seconds: int = 10):
     """
     Starts the live stream simulation, generating data and triggering the ML Pipeline.
@@ -79,8 +118,12 @@ def start_stream(cycles: int = 3, interval_seconds: int = 10):
         logger.info(f"Saved incoming telemetry batch: {stream_path}")
         
         # 🚀 TRIGGER THE MLOPS PIPELINE
+        # 🚀 TRIGGER THE MLOPS PIPELINE
         logger.info("Triggering EdgeOps ML Pipeline for evaluation...")
         ml_pipeline.run_pipeline(incoming_data=incoming_data)
+        
+        # 📊 INJECT GRAFANA METRICS
+        inject_mock_system_metrics()
         
         if cycle < cycles:
             logger.info(f"Waiting {interval_seconds} seconds before next sensor batch...")
