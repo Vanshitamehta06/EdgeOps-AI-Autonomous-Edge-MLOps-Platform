@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: dockerfile  # Matches your exact lowercase spelling
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist your specific databases
+      - ./edgeops.db:/app/edgeops.db 
+      - ./mlflow_tracking.db:/app/mlflow_tracking.db
+      # Persist your datasets and ML tracking artifacts
+      - ./predictive_maintenance.csv:/app/predictive_maintenance.csv
+      - ./models:/app/models
+      - ./stream_data:/app/stream_data
+      - ./mlruns:/app/mlruns
+      - ./logs:/app/logs
+      - ./temp_plots:/app/temp_plots
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./edgeops-dashboard  # Matches your exact folder name
+      dockerfile: dockerfile
+    ports:
+      - "5173:5173"  # Standard Vite port
+    environment:
+      # Note: Vite uses VITE_ prefix for environment variables instead of REACT_APP_
+      - VITE_API_URL=http://localhost:8000 
+    depends_on:
+      - backend

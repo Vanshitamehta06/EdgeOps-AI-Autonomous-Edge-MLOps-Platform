@@ -144,6 +144,23 @@ def get_current_deployment() -> Optional[Dict[str, Any]]:
         
     return dict(result) if result else None
 
+
+#-----------------------------------------------------------------------------------------------------------
+def check_score_exists(f1_score: float) -> bool:
+    """
+    Checks if a model with the exact same F1-score already exists in the registry.
+    Prevents duplicate models from polluting disk space.
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # Using ABS difference to handle floating-point precision safely
+        cursor.execute(
+            "SELECT 1 FROM model_versions WHERE ABS(f1_score - ?) < 0.0001", 
+            (f1_score,)
+        )
+        return cursor.fetchone() is not None
+#-------------------------------------------------------------------------------------------------------------------
+
 def rollback_deployment() -> bool:
     """
     Reverts the active production model to the stable fallback model.
@@ -161,11 +178,14 @@ def rollback_deployment() -> bool:
         
         # The old stable becomes current, and we set stable to NULL 
         # (or we could keep a deeper history, but for this setup, we avoid a loop)
+#--------------------------------------------------------------------------------------------------------
+        # CORRECTED QUERY
         update_query = """
             UPDATE deployment_state 
-            SET current_model_id = ?, stable_model_id = NULL, last_updated = CURRENT_TIMESTAMP
+            SET current_model_id = ?, stable_model_id = NULL, updated_at = CURRENT_TIMESTAMP
             WHERE id = 1
         """
+#----------------------------------------------------------------------------------------------------------
         cursor.execute(update_query, (stable_id,))
         conn.commit()
         

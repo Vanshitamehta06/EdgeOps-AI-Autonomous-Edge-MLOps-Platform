@@ -1,0 +1,62 @@
+# ==========================
+# Core Backend
+# ==========================
+fastapi
+uvicorn[standard]
+pydantic
+
+# ==========================
+# Machine Learning
+# ==========================
+xgboost
+scikit-learn
+pandas
+numpy
+scipy
+joblib
+seaborn 
+matplotlib
+
+# ==========================
+# Hyperparameter Optimization
+# ==========================
+optuna
+
+# ==========================
+# Experiment Tracking
+# ==========================
+mlflow
+
+# ==========================
+# Edge Deployment
+# ==========================
+onnx
+onnxruntime
+skl2onnx
+onnxmltools
+
+# ==========================
+# Drift Detection
+# ==========================
+evidently
+
+# ==========================
+# Visualization
+# ==========================
+matplotlib
+plotly
+
+# ==========================
+# System Monitoring
+# ==========================
+psutil
+
+# ==========================
+# API / HTTP
+# ==========================
+requests
+
+# ==========================
+# Utilities
+# ==========================
+python-dotenv
