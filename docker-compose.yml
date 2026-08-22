@@ -6,18 +6,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Persist your specific databases
-      - ./edgeops.db:/app/edgeops.db 
-      - ./mlflow_tracking.db:/app/mlflow_tracking.db
-      # Persist your datasets and ML tracking artifacts
-      - ./predictive_maintenance.csv:/app/predictive_maintenance.csv
-      - ./models:/app/models
-      - ./stream_data:/app/stream_data
-      - ./mlruns:/app/mlruns
-      - ./logs:/app/logs
-      - ./temp_plots:/app/temp_plots
+      # CHANGE: Instead of mounting 8 individual files/folders, mount the project root directory.
+      # This allows SQLite to generate and share the .db, .db-wal, and .db-shm files seamlessly!
+      - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - TZ=Asia/Kolkata
 
   frontend:
     build:
@@ -26,7 +20,27 @@ services:
     ports:
       - "5173:5173"  # Standard Vite port
     environment:
-      # Note: Vite uses VITE_ prefix for environment variables instead of REACT_APP_
       - VITE_API_URL=http://localhost:8000 
     depends_on:
       - backend
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=frser-sqlite-datasource
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - TZ=Asia/Kolkata
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      # CHANGE: Mount the host root directory into /app_data so Grafana can read the DB folder perfectly
+      - .:/app_data
+
+volumes:
+   grafana-storage:

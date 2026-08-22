@@ -211,6 +211,7 @@ def trigger_live_stream():
         raise HTTPException(status_code=500, detail=f"Telemetry streaming failed: {str(e)}")
 
 @app.post("/force_optimization")
+
 def trigger_optimization():
     """Bypasses scheduling configurations to aggressively optimize model variants."""
     try:
@@ -218,10 +219,17 @@ def trigger_optimization():
         return {"status": "success", "message": "Optimization completed successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Forced optimization run failed: {str(e)}")
+
+@app.post("/hard_reset")
+def trigger_api_hard_reset():
+    """Logs a hardware maintenance event and triggers a data baseline reset."""
+    try:
+        optimizer.trigger_hard_reset()
+        return {"status": "success", "message": "Hard reset logged successfully. AI is tracking new hardware modifications."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Hard reset failed: {str(e)}")
+
 @app.post("/rollback")
-
-
-
 def trigger_rollback():
     """Executes urgent model rollback workflows to fall back onto stable profiles."""
     try:

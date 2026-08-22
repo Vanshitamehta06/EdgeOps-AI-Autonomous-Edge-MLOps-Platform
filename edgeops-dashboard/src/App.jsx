@@ -3,6 +3,10 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 
+const GRAFANA_PREVIEW_URL = 'http://localhost:3000/d-solo/adgvq6f/edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=light&kiosk';
+const GRAFANA_ML_HEALTH_URL = 'http://localhost:3000/d-solo/adwk9d5/ml-health-edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=light&kiosk';
+const GRAFANA_FULL_URL = 'http://localhost:3000/d/adgvq6f/edgeops-live?orgId=1&refresh=5s';
+
 const MetricBox = ({ title, value }) => (
   <div className="hover-card" style={{ background: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
     <div style={{ color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'bold', marginBottom: '8px' }}>{title}</div>
@@ -16,6 +20,11 @@ function App() {
   const [deployState, setDeployState] = useState({});
   const [driftState, setDriftState] = useState({ drift_detected: false, drift_share: 0.0 });
   const [isLoading, setIsLoading] = useState(false);
+
+
+  const handleGrafanaClick = () => {
+    window.open(GRAFANA_FULL_URL, '_blank', 'noopener,noreferrer');
+  };
 
   const fetchData = async () => {
     try {
@@ -47,7 +56,6 @@ function App() {
         await axios.post(`${API_BASE_URL}/${endpoint}`);
         alert(`${actionName} executed successfully!`);
     } catch(e) {
-        // This extracts the exact error detail sent by your FastAPI HTTPException
         const backendError = e.response?.data?.detail || e.message;
         alert(`${actionName} failed:\n\n${backendError}`);
         console.error("Full error details:", e);
@@ -55,11 +63,11 @@ function App() {
     fetchData();
     setIsLoading(false);
   };
+
   const activeModel = registry.find(m => m.id === deployState.current_model_id);
 
   return (
     <>
-      {/* INLINE CSS FOR HOVER EFFECTS & ANIMATIONS */}
       <style>{`
         body { margin: 0; background-color: #f1f5f9; color: #0f172a; }
         .hover-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -77,11 +85,10 @@ function App() {
         }
         .pulse-dot { width: 10px; height: 10px; background-color: #22c55e; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
         .pulse-dot-red { background-color: #ef4444; animation: none; box-shadow: 0 0 5px #ef4444; }
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       `}</style>
       
-      {/* RESTORED FLEX WRAPPER */}
       <div style={{ display: 'flex', minHeight: '100vh', fontFamily: '"Inter", "Segoe UI", sans-serif' }}>
         
         {/* STICKY SIDEBAR */}
@@ -106,22 +113,25 @@ function App() {
           
           <div style={{ flex: 1, overflowY: 'auto' }}> 
             <h4 style={{ margin: '10px 0', color: '#cbd5e1', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pipeline Controls</h4>
-            <button className="btn" onClick={() => handleAction('Pipeline', 'run_pipeline')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: '#334155', color: 'white', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', marginBottom: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="btn" onClick={() => handleAction('Pipeline', 'run_pipeline')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: '#334155', color: 'white', border: '1px solid #475569', borderLeft: '4px solid #eab308', borderRadius: '8px', cursor: 'pointer', marginBottom: '16px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
               ⚙️ Run Initial Pipeline
             </button>
-            <button className="btn" onClick={() => handleAction('Stream', 'simulate_stream')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '25px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="btn" onClick={() => handleAction('Stream', 'simulate_stream')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', borderLeft: '4px solid #eab308', borderRadius: '8px', cursor: 'pointer', marginBottom: '30px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
               🌊 Simulate Live Stream
             </button>
 
             <h4 style={{ margin: '10px 0', color: '#cbd5e1', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Maintenance</h4>
-            <button className="btn" onClick={() => handleAction('Optimize', 'force_optimization')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: '#334155', color: 'white', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="btn" onClick={() => handleAction('Optimize', 'force_optimization')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: '#334155', color: 'white', border: '1px solid #475569', borderLeft: '4px solid #eab308', borderRadius: '8px', cursor: 'pointer', marginBottom: '16px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
               🔄 Force Optimization
+            </button>
+            <button className="btn" onClick={() => handleAction('Hard Reset', 'hard_reset')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: '#334155', color: 'white', border: '1px solid #475569', borderLeft: '4px solid #eab308', borderRadius: '8px', cursor: 'pointer', marginBottom: '16px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              🛠️ Log Hardware Reset
             </button>
           </div>
           
           <div style={{ marginTop: 'auto', paddingTop: '20px' }}> 
             <h4 style={{ margin: '10px 0', color: '#cbd5e1', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Emergency</h4>
-            <button className="btn" onClick={() => handleAction('Rollback', 'rollback')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #dc2626, #ef4444)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="btn" onClick={() => handleAction('Rollback', 'rollback')} disabled={isLoading} style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #dc2626, #ef4444)', color: 'white', border: 'none', borderLeft: '4px solid #eab308', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
               ⏪ Rollback Deployment
             </button>
           </div>
@@ -164,6 +174,7 @@ function App() {
               </div>
             )}
           </div>
+          
 
           {/* METRICS GRID */}
           <h3 style={{ marginTop: 0, display: 'flex', gap: '10px', alignItems: 'center', color: '#334155' }}>💾 Active Edge Deployment</h3>
@@ -184,10 +195,10 @@ function App() {
           {/* BOTTOM PANELS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '30px' }}>
             
-            {/* CHART */}
+            {/* CHART PANEL */}
             <div className="hover-card" style={{ background: 'white', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                <h3 style={{ margin: '0 0 20px 0', color: '#334155' }}>📊 Optimization History (ROC-AUC)</h3>
-               <div style={{ display: 'flex', alignItems: 'flex-end', height: '250px', gap: '25px', padding: '20px 10px', borderBottom: '2px solid #f1f5f9' }}>
+               <div className="custom-scroll" style={{ display: 'flex', alignItems: 'flex-end', height: '250px', gap: '25px', padding: '20px 10px', paddingBottom: '15px', borderBottom: '2px solid #f1f5f9', overflowX: 'auto', overflowY: 'hidden' }}>
                   {registry.length === 0 ? (
                       <div style={{ width: '100%', textAlign: 'center', color: '#94a3b8' }}>Awaiting pipeline data...</div>
                   ) : (
@@ -195,18 +206,18 @@ function App() {
                           const score = m.roc_auc || 0;
                           const heightPct = Math.max(10, (score - 0.5) * 200); 
                           return (
-                              <div key={m.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', height: '100%', justifyContent: 'flex-end', group: 'true' }}>
+                              <div key={m.id} style={{ flex: '0 0 60px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', height: '100%', justifyContent: 'flex-end' }}>
                                   <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>{score.toFixed(3)}</span>
                                   <div className="chart-bar" style={{ width: '100%', maxWidth: '60px', background: 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)', height: `${Math.min(100, heightPct)}%`, borderRadius: '6px 6px 0 0', boxShadow: '0 -2px 10px rgba(59, 130, 246, 0.2)' }}></div>
                                   <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#0f172a' }}>v{m.version_number}</span>
                               </div>
-                          )
+                          );
                       })
                   )}
                </div>
-            </div> {/* <-- ADDED MISSING CLOSING DIV FOR CHART HERE */}
+            </div>
 
-            {/* TABLE */}
+            {/* TABLE PANEL */}
             <div className="hover-card custom-scroll" style={{ background: 'white', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0', overflowY: 'auto', maxHeight: '350px' }}>
               <h3 style={{ margin: '0 0 20px 0', color: '#334155' }}>📚 Model Artifact Registry</h3>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
@@ -234,6 +245,74 @@ function App() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            {/* GRAFANA LIVE TELEMETRY PREVIEW */}
+            <div 
+              className="hover-card" 
+              onClick={handleGrafanaClick}
+              style={{ 
+                background: 'white', 
+                padding: '25px', 
+                borderRadius: '12px', 
+                border: '1px solid #e2e8f0', 
+                position: 'relative', 
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '350px'
+              }}
+            >
+              <h3 style={{ margin: '0 0 20px 0', color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>📈 Live Telemetry Stream</span>
+                <span style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: '600', background: '#eff6ff', padding: '4px 10px', borderRadius: '20px' }}>View Full Panel ↗</span>
+              </h3>
+              
+              <div style={{ position: 'relative', flex: 1, width: '100%', height: '100%' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10 }}></div>
+                <iframe 
+                  src={GRAFANA_PREVIEW_URL} 
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0"
+                  title="Grafana Preview Visual"
+                  style={{ borderRadius: '8px', background: '#f8fafc' }}
+                ></iframe>
+              </div>
+            </div>
+
+            {/* ML HEALTH PANEL */}
+            <div 
+              className="hover-card" 
+              onClick={() => window.open('http://localhost:3000/d/adwk9d5/ml-health-edgeops-live?orgId=1&refresh=5s', '_blank', 'noopener,noreferrer')}
+              style={{ 
+                background: 'white', 
+                padding: '25px', 
+                borderRadius: '12px', 
+                border: '1px solid #e2e8f0', 
+                position: 'relative', 
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '350px'
+              }}
+            >
+              <h3 style={{ margin: '0 0 20px 0', color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🤖 AI Pipeline Health</span>
+                <span style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: '600', background: '#eff6ff', padding: '4px 10px', borderRadius: '20px' }}>View Full Panel ↗</span>
+              </h3>
+  
+              <div style={{ position: 'relative', flex: 1, width: '100%', height: '100%' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10 }}></div>
+                <iframe 
+                  src={GRAFANA_ML_HEALTH_URL} 
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0"
+                  title="ML Pipeline Health"
+                  style={{ borderRadius: '8px', background: '#f8fafc' }}
+                ></iframe>
+              </div>
             </div>
 
           </div>
