@@ -2,12 +2,10 @@ services:
   backend:
     build:
       context: .
-      dockerfile: dockerfile  # Matches your exact lowercase spelling
+      dockerfile: dockerfile
     ports:
       - "8000:8000"
     volumes:
-      # CHANGE: Instead of mounting 8 individual files/folders, mount the project root directory.
-      # This allows SQLite to generate and share the .db, .db-wal, and .db-shm files seamlessly!
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
@@ -15,10 +13,13 @@ services:
 
   frontend:
     build:
-      context: ./edgeops-dashboard  # Matches your exact folder name
+      context: ./edgeops-dashboard
       dockerfile: dockerfile
     ports:
-      - "5173:5173"  # Standard Vite port
+      - "5173:5173"
+    volumes:
+      - ./edgeops-dashboard:/app
+      - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000 
     depends_on:
@@ -39,8 +40,31 @@ services:
       - TZ=Asia/Kolkata
     volumes:
       - grafana-storage:/var/lib/grafana
-      # CHANGE: Mount the host root directory into /app_data so Grafana can read the DB folder perfectly
       - .:/app_data
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    command: mlflow server --backend-store-uri sqlite:////app_data/mlflow.db --default-artifact-root /app_data/mlruns --host 0.0.0.0 --port 5000
+    volumes:
+      - .:/app_data
+
+  plc-emulator:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: plc_emulator
+    command: python industrial/opc_ua_plc_server.py --endpoint opc.tcp://0.0.0.0:4840/edgeops/simulated_s7_plc/
+    ports:
+      - "4840:4840"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    profiles:
+      - plc
+
 volumes:
-   grafana-storage:
+  grafana-storage:

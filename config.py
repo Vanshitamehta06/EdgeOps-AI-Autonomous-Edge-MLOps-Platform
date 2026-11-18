@@ -59,16 +59,26 @@ XGB_PARAMS = {
 # ---------------------------------------------------------
 # MLOPS & SYSTEM THRESHOLDS
 # ---------------------------------------------------------
+import os
+from dotenv import load_dotenv
+
+# Load optional .env file
+load_dotenv(BASE_DIR / ".env")
+
 # Artifact directory formatting
 VERSION_FORMAT = "version_{:04d}"
 
 # API Inference Threshold
-PREDICTION_THRESHOLD = 0.50
+PREDICTION_THRESHOLD = float(os.getenv("PREDICTION_THRESHOLD", 0.50))
 
 # MLflow Tracking setup (Stores MLflow's backend in the root folder)
-MLFLOW_TRACKING_URI = f"sqlite:///{BASE_DIR / 'mlflow_tracking.db'}"
-MLFLOW_EXPERIMENT_NAME = "EdgeOps_Predictive_Maintenance"
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", f"sqlite:///{BASE_DIR / 'mlflow_tracking.db'}")
+MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "EdgeOps_Predictive_Maintenance")
 
 # Evidently AI Monitoring Thresholds
-DRIFT_THRESHOLD = 0.3        
-MIN_LOG_SAMPLES = 50
+DRIFT_THRESHOLD = float(os.getenv("DRIFT_THRESHOLD", 0.3))        
+MIN_LOG_SAMPLES = int(os.getenv("MIN_LOG_SAMPLES", 50))
+
+# Security & Admin Authentication
+EDGE_ADMIN_USER = os.getenv("EDGE_ADMIN_USER", "admin")
+EDGE_ADMIN_PASSWORD = os.getenv("EDGE_ADMIN_PASSWORD", "edgeops2026")

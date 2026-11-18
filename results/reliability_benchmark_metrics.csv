@@ -1,0 +1,9 @@
+Metric,Measured_Value
+Rollback Mean Latency (ms),27.929
+Rollback Median / p50 (ms),27.999
+Rollback p95 Latency (ms),33.74
+Rollback Max Latency (ms),35.569
+Hard Reset Mean Latency (ms),2.661
+Hard Reset p95 Latency (ms),3.841
+Hot-Swap Inference Success Rate (%),100.0
+Zero-Downtime Compliance,100% Passed (Zero Crashes)

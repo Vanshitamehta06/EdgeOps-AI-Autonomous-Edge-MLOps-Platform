@@ -1,0 +1,45 @@
+name: EdgeOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio asyncua shap httpx
+
+    - name: Initialize SQLite Registry
+      run: |
+        python -c "import database; database.init_db()"
+
+    - name: Run Pytest Test Suite
+      run: |
+        pytest tests/ -v --durations=10
+
+    - name: Verify Edge ONNX Inference Engine
+      run: |
+        python -c "import edge_engine; e = edge_engine.EdgeEngine(); res = e.predict({'Type': 'M', 'Air temperature [K]': 300.0, 'Process temperature [K]': 310.0, 'Rotational speed [rpm]': 1500.0, 'Torque [Nm]': 40.0, 'Tool wear [min]': 10.0}); assert res['prediction'] in (0, 1); print('Inference test passed:', res)"
+
+    - name: Test Frontend Build
+      working-directory: ./edgeops-dashboard
+      run: |
+        npm ci
+        npm run build

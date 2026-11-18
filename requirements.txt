@@ -1,62 +1,50 @@
-# ==========================
-# Core Backend
-# ==========================
-fastapi
-uvicorn[standard]
-pydantic
+# ==============================================================================
+# EdgeOps AI Platform: Pinned Production Dependencies
+# ==============================================================================
 
-# ==========================
-# Machine Learning
-# ==========================
-xgboost
-scikit-learn
-pandas
-numpy
-scipy
-joblib
-seaborn 
-matplotlib
+# Core API & ASGI Web Server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
 
-# ==========================
-# Hyperparameter Optimization
-# ==========================
-optuna
+# Machine Learning & Tabular Modeling
+xgboost==2.1.3
+scikit-learn==1.6.0
+pandas==2.2.3
+numpy==2.0.2
+scipy==1.14.1
+joblib==1.4.2
+shap==0.46.0
 
-# ==========================
-# Experiment Tracking
-# ==========================
-mlflow
+# Visualization & Statistical Plotting
+matplotlib==3.10.0
+seaborn==0.13.2
+plotly==5.24.1
 
-# ==========================
-# Edge Deployment
-# ==========================
-onnx
-onnxruntime
-skl2onnx
-onnxmltools
+# Hyperparameter Optimization & Experiment Tracking
+optuna==4.1.0
+mlflow==2.19.0
 
-# ==========================
-# Drift Detection
-# ==========================
-evidently
+# Edge Runtime & Open Neural Network Exchange (ONNX)
+onnx==1.17.0
+onnxruntime==1.20.1
+skl2onnx==1.18.0
+onnxmltools==1.13.0
 
-# ==========================
-# Visualization
-# ==========================
-matplotlib
-plotly
+# Statistical Drift Monitoring (CPU-optimized KS-test + PSI implemented via scipy)
+# evidently==0.7.21
 
-# ==========================
-# System Monitoring
-# ==========================
-psutil
+# Industrial Telemetry & Protocols (OPC UA / S7)
+asyncua>=1.1.0
 
-# ==========================
-# API / HTTP
-# ==========================
-requests
+# Hardware Telemetry & System Utilities
+psutil==5.9.5
+requests==2.32.3
+python-dotenv==1.0.1
 
-# ==========================
-# Utilities
-# ==========================
-python-dotenv
+# Testing & Quality Assurance
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1
+locust==2.32.4

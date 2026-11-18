@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: edgeops-ai-backend
+    env: docker
+    dockerfilePath: ./dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: EDGE_ADMIN_USER
+        value: admin
+      - key: EDGE_ADMIN_PASSWORD
+        value: edgeops2026

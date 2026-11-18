@@ -49,8 +49,21 @@ def load_dataset() -> pd.DataFrame:
     if not config.DATASET_PATH.exists():
         raise FileNotFoundError(f"Dataset missing at {config.DATASET_PATH}")
     logger.info(f"Loading dataset from {config.DATASET_PATH}")
-    return pd.read_csv(config.DATASET_PATH)
-
+    
+    # 1. Load the data into a variable first
+    df = pd.read_csv(config.DATASET_PATH)
+    
+    # 2. === NEW ADDITION: Hook to learn thresholds ===
+    try:
+        import monitor_realtime
+        logger.info("📊 Learning normal operational envelope from baseline 'good data'...")
+        monitor_realtime.calculate_and_save_thresholds(df)
+    except Exception as e:
+        logger.error(f"Failed to calculate dynamic thresholds: {str(e)}")
+    # ==============================================
+    
+    # 3. Return the data to the rest of the pipeline safely
+    return df
 def preprocess_data(df: pd.DataFrame):
     """
     Cleans the input dataframe, drops leakage columns, sanitizes feature names 
@@ -397,6 +410,11 @@ def execute_final_deployment(model, encoder, X_train, X_test, y_test, metrics, h
     # 5. Automatically Promote the New Outperforming Champion to Active Status
     logger.info(f"Promoting newly generated model version {next_version} to production active status node.")
     database.promote_model_to_production(model_id)
+    try:
+        from edge_engine import engine
+        engine.reload_model()
+    except Exception as e:
+        logger.warning(f"Could not directly reload edge engine: {e}")
     logger.info(f"=== Pipeline Finished. Version {next_version} is deployed. ===")
 
 

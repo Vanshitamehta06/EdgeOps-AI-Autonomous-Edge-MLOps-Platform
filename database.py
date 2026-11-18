@@ -178,13 +178,14 @@ def rollback_deployment() -> bool:
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT stable_model_id FROM deployment_state WHERE id = 1")
+        cursor.execute("SELECT current_model_id, stable_model_id FROM deployment_state WHERE id = 1")
         state = cursor.fetchone()
         
         if not state or state["stable_model_id"] is None:
             logger.warning("Rollback failed: No stable model ID found.")
             return False
             
+        old_current_id = state["current_model_id"]
         stable_id = state["stable_model_id"]
         
         # Swapped CURRENT_TIMESTAMP with structural parameter injection
@@ -194,6 +195,11 @@ def rollback_deployment() -> bool:
             WHERE id = 1
         """
         cursor.execute(update_query, (stable_id, now_str))
+
+        # Update model_versions status flags
+        if old_current_id:
+            cursor.execute("UPDATE model_versions SET status = 'retired', last_updated = ? WHERE id = ?", (now_str, old_current_id))
+        cursor.execute("UPDATE model_versions SET status = 'active', last_updated = ? WHERE id = ?", (now_str, stable_id))
         conn.commit()
         
     logger.info(f"Rolled back production to model ID {stable_id}.")

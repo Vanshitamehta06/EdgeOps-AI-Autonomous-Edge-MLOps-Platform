@@ -1,0 +1,2 @@
+Dataset,Total Records,Total Engines,CV Scheme,Mean Accuracy,Accuracy Std,Mean Precision,Precision Std,Mean Recall,Recall Std,Mean F1,F1 Std,Mean ROC_AUC,ROC_AUC Std,Mean PR_AUC,PR_AUC Std,ONNX Latency (us),Native Latency (us),ONNX Speedup
+NASA C-MAPSS FD001 Turbofan,20631,100,5-Fold GroupKFold (Unseen Engines),0.9462,0.0142,0.7731,0.0627,0.921,0.0319,0.8387,0.0328,0.9891,0.003,0.9503,0.0122,61.51,1463.75,23.8
