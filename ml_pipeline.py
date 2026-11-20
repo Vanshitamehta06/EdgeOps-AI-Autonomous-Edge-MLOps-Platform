@@ -15,9 +15,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import mlflow
 import optuna
 from typing import Tuple, Dict, Any, Optional
+
+# mlflow is optional (not installed in cloud/edge deployments)
+try:
+    import mlflow
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    mlflow = None
+    MLFLOW_AVAILABLE = False
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -247,8 +254,9 @@ def run_pipeline(incoming_data: pd.DataFrame = None) -> None:
     logger.info("=== Starting EdgeOps Gated ML Pipeline ===")
     
     # Setup tracking integrations
-    mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(config.MLFLOW_EXPERIMENT_NAME)
+    if MLFLOW_AVAILABLE:
+        mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
+        mlflow.set_experiment(config.MLFLOW_EXPERIMENT_NAME)
 
     # 1. Ingest Inbound Telemetry
     if incoming_data is not None:
@@ -392,13 +400,14 @@ def execute_final_deployment(model, encoder, X_train, X_test, y_test, metrics, h
     temp_plot_dir = config.BASE_DIR / "temp_plots"
     generate_evaluation_plots(model, X_test, y_test, str(temp_plot_dir))
 
-    # 3. Log Complete Metadata Ecosystem to MLflow Run Registry
-    with mlflow.start_run(run_name=f"Automated_Retrain_v{next_version}"):
-        mlflow.log_params(hyperparams)
-        mlflow.log_metrics(metrics)
-        mlflow.log_artifacts(bundle_path, artifact_path="model_bundle")
-        mlflow.log_artifacts(str(temp_plot_dir), artifact_path="evaluation_plots")
-        mlflow.set_tag("version", f"v{next_version}")
+    # 3. Log Complete Metadata Ecosystem to MLflow Run Registry (optional, local only)
+    if MLFLOW_AVAILABLE:
+        with mlflow.start_run(run_name=f"Automated_Retrain_v{next_version}"):
+            mlflow.log_params(hyperparams)
+            mlflow.log_metrics(metrics)
+            mlflow.log_artifacts(bundle_path, artifact_path="model_bundle")
+            mlflow.log_artifacts(str(temp_plot_dir), artifact_path="evaluation_plots")
+            mlflow.set_tag("version", f"v{next_version}")
 
     # 4. Commit Package to Local Persistent SQLite State Machine
     model_id = database.register_model_version(
