@@ -1,34 +1,37 @@
 """
 monitor.py
 
-Monitors live edge inference logs for statistical data drift using Evidently AI.
-Compares incoming API telemetry against the baseline training dataset to detect
-when the active model is operating in an unseen environment.
+Monitors live edge inference logs for statistical data drift.
+Uses Two-Sample Kolmogorov-Smirnov (KS) tests, Population Stability Index (PSI),
+and Chi-Square goodness-of-fit to compare incoming live telemetry against the baseline.
+Strictly CPU-optimized (<5ms calculation) for industrial edge devices.
 """
 
 import json
 import logging
+import numpy as np
 import pandas as pd
 from typing import Tuple, Optional, Dict, Any
-from evidently import Report
-from evidently.presets import DataDriftPreset
+from scipy.stats import ks_2samp, chisquare
 
 # Local imports
 import config
 import database
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [%(levelname)s] - [%(name)s] - %(message)s')
+logger = logging.getLogger("edgeops.monitor")
 
-# Fallback thresholds if not explicitly defined in config.py
+# Config thresholds
 DRIFT_THRESHOLD = getattr(config, 'DRIFT_THRESHOLD', 0.3)  # 30% of features drifted
 MIN_LOG_SAMPLES = getattr(config, 'MIN_LOG_SAMPLES', 50)   # Minimum samples needed for statistical tests
+KS_ALPHA = 0.05                                            # Significance level for KS test
+PSI_THRESHOLD = 0.25                                       # Standard industry PSI drift boundary
 
 def get_active_model_version() -> Optional[int]:
     """Retrieves the currently deployed model version from the SQLite registry."""
     deployment = database.get_current_deployment()
     if not deployment:
-        logger.warning("No active deployment found. Cannot monitor drift.")
+        logger.warning("No active deployment found in registry. Cannot monitor drift.")
         return None
     return deployment["version_number"]
 
@@ -37,14 +40,15 @@ def load_reference_data() -> pd.DataFrame:
     Loads the original dataset to act as the baseline distribution.
     Strictly filters out dropped columns and targets to match the API payload exactly.
     """
-    logger.info(f"Loading reference dataset from {config.DATASET_PATH}")
+    if not config.DATASET_PATH.exists():
+        raise FileNotFoundError(f"Reference dataset not found at {config.DATASET_PATH}")
     df = pd.read_csv(config.DATASET_PATH)
     
-    # Drop irrelevant columns (UDI, Product ID, etc.)
+    # Drop identifier columns and leakage flags
     cols_to_drop = [col for col in config.COLUMNS_TO_DROP if col in df.columns]
-    df = df.drop(columns=cols_to_drop)
+    df = df.drop(columns=cols_to_drop, errors='ignore')
     
-    # Drop the target column; we are measuring *Data* Drift, not Concept Drift here
+    # Drop target column
     if config.TARGET_COLUMN in df.columns:
         df = df.drop(columns=[config.TARGET_COLUMN])
         
@@ -52,7 +56,7 @@ def load_reference_data() -> pd.DataFrame:
 
 def load_current_telemetry(active_version: int) -> Optional[pd.DataFrame]:
     """
-    Parses the JSONL inference logs and extracts the payloads processed by the active model.
+    Parses JSONL inference logs and extracts telemetry payloads processed by the active model.
     """
     log_file = config.LOGS_DIR / "inference_logs.jsonl"
     
@@ -60,18 +64,22 @@ def load_current_telemetry(active_version: int) -> Optional[pd.DataFrame]:
         logger.info("No inference logs found yet.")
         return None
 
-    # Read JSON Lines file
     logs = []
     with open(log_file, "r") as f:
         for line in f:
             if line.strip():
-                logs.append(json.loads(line))
+                try:
+                    logs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
                 
     if not logs:
         return None
 
-    # Convert to DataFrame and filter by the active model version
     df_logs = pd.DataFrame(logs)
+    if "model_version" not in df_logs.columns:
+        return None
+        
     df_current_model = df_logs[df_logs["model_version"] == active_version].copy()
     
     if len(df_current_model) < MIN_LOG_SAMPLES:
@@ -81,42 +89,111 @@ def load_current_telemetry(active_version: int) -> Optional[pd.DataFrame]:
         )
         return None
         
-    # Keep only the feature columns expected by the model (ignore timestamp, prediction, etc.)
-    # Note: The API explicitly logs features using exact dataset names (e.g., 'Air temperature [K]')
     reference_columns = load_reference_data().columns
     feature_logs = df_current_model[[col for col in reference_columns if col in df_current_model.columns]]
-    
     return feature_logs
+
+def calculate_psi(expected: np.ndarray, actual: np.ndarray, num_buckets: int = 10) -> float:
+    """
+    Computes Population Stability Index (PSI) between reference and current distributions.
+    PSI = sum((actual% - expected%) * ln(actual% / expected%))
+    """
+    try:
+        # Determine quantile breakpoints from reference distribution
+        percentiles = np.linspace(0, 100, num_buckets + 1)
+        breakpoints = np.percentile(expected, percentiles)
+        breakpoints[0] = -np.inf
+        breakpoints[-1] = np.inf
+
+        expected_counts, _ = np.histogram(expected, bins=breakpoints)
+        actual_counts, _ = np.histogram(actual, bins=breakpoints)
+
+        # Smooth with epsilon to avoid division by zero or log(0)
+        eps = 1e-4
+        expected_pct = (expected_counts + eps) / (len(expected) + eps * num_buckets)
+        actual_pct = (actual_counts + eps) / (len(actual) + eps * num_buckets)
+
+        psi_val = np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct))
+        return float(psi_val)
+    except Exception:
+        return 0.0
 
 def analyze_data_drift(reference_data: pd.DataFrame, current_data: pd.DataFrame) -> Dict[str, Any]:
     """
-    Executes Evidently AI's DataDriftPreset to compare distributions.
-    Strictly runs on CPU and returns a parsed dictionary of the report.
+    Executes statistical drift tests on each feature:
+    - Numerical: 2-Sample Kolmogorov-Smirnov (KS) test (p < 0.05) + PSI (> 0.25)
+    - Categorical: Chi-square test (p < 0.05)
+    Returns a structured drift report matching the EdgeOps standard.
     """
-    logger.info("Executing Evidently AI Data Drift analysis...")
-    
-    # Initialize the Evidently report
-    drift_report = Report(metrics=[DataDriftPreset()])
-    
-    # Run the report
-    drift_report.run(reference_data=reference_data, current_data=current_data)
-    
-    # Extract results as dictionary to avoid heavy HTML rendering
-    report_dict = drift_report.as_dict()
-    
-    # Navigate the nested Evidently dictionary structure to find the drift flag
-    # Metrics [0] is the DataDriftTable metric
-    drift_metrics = report_dict["metrics"][0]["result"]
-    
-    share_of_drifted_columns = drift_metrics["share_of_drifted_columns"]
-    dataset_drift = drift_metrics["dataset_drift"]
-    
-    logger.info(f"Drift Analysis Complete. Drifted features: {share_of_drifted_columns*100:.1f}%.")
-    
+    logger.info("Executing EdgeOps Statistical Data Drift Analysis...")
+    drifted_features = []
+    feature_details = {}
+
+    total_columns = len(reference_data.columns)
+
+    for col in reference_data.columns:
+        ref_col = reference_data[col].dropna()
+        cur_col = current_data[col].dropna()
+
+        if len(ref_col) == 0 or len(cur_col) == 0:
+            continue
+
+        # Check if numeric
+        if pd.api.types.is_numeric_dtype(ref_col):
+            ref_arr = ref_col.to_numpy(dtype=float)
+            cur_arr = cur_col.to_numpy(dtype=float)
+
+            ks_stat, ks_pvalue = ks_2samp(ref_arr, cur_arr)
+            psi_score = calculate_psi(ref_arr, cur_arr)
+
+            # Drift flagged if statistically significant KS shift OR high PSI
+            is_drifted = bool(ks_pvalue < KS_ALPHA or psi_score > PSI_THRESHOLD)
+
+            feature_details[col] = {
+                "test": "Kolmogorov-Smirnov + PSI",
+                "ks_stat": float(ks_stat),
+                "p_value": float(ks_pvalue),
+                "psi": float(psi_score),
+                "drift_detected": is_drifted
+            }
+        else:
+            # Categorical distribution shift
+            ref_counts = ref_col.value_counts(normalize=True)
+            cur_counts = cur_col.value_counts(normalize=True)
+            all_cats = list(set(ref_counts.index).union(set(cur_counts.index)))
+
+            ref_probs = np.array([ref_counts.get(c, 1e-4) for c in all_cats])
+            cur_probs = np.array([cur_counts.get(c, 1e-4) for c in all_cats])
+            ref_probs /= ref_probs.sum()
+            cur_probs /= cur_probs.sum()
+
+            stat, p_val = chisquare(f_obs=cur_probs * len(cur_col), f_exp=ref_probs * len(cur_col))
+            is_drifted = bool(p_val < KS_ALPHA)
+
+            feature_details[col] = {
+                "test": "Chi-Square",
+                "statistic": float(stat),
+                "p_value": float(p_val),
+                "drift_detected": is_drifted
+            }
+
+        if is_drifted:
+            drifted_features.append(col)
+
+    share_of_drifted_columns = float(len(drifted_features) / max(total_columns, 1))
+    dataset_drift = bool(share_of_drifted_columns >= DRIFT_THRESHOLD)
+
+    logger.info(
+        f"Drift Analysis Complete. Drifted features: {len(drifted_features)}/{total_columns} "
+        f"({share_of_drifted_columns*100:.1f}%). Trigger condition: {dataset_drift}."
+    )
+
     return {
         "drift_detected": dataset_drift,
         "drift_share": share_of_drifted_columns,
-        "drifted_features": drift_metrics["number_of_drifted_columns"]
+        "number_of_drifted_columns": len(drifted_features),
+        "drifted_features": drifted_features,
+        "metrics_per_feature": feature_details
     }
 
 def run_monitor() -> bool:
@@ -137,7 +214,7 @@ def run_monitor() -> bool:
     reference_data = load_reference_data()
     
     # Ensure columns match strictly
-    common_cols = list(set(reference_data.columns).intersection(set(current_data.columns)))
+    common_cols = [c for c in reference_data.columns if c in current_data.columns]
     reference_data = reference_data[common_cols]
     current_data = current_data[common_cols]
     
@@ -147,12 +224,13 @@ def run_monitor() -> bool:
     drift_state = {
         "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
         "drift_detected": bool(drift_results["drift_detected"]),
-        "drift_share": float(drift_results["drift_share"])
+        "drift_share": float(drift_results["drift_share"]),
+        "drifted_features": drift_results["drifted_features"]
     }
     with open(config.BASE_DIR / "drift_state.json", "w") as f:
-        json.dump(drift_state, f)
+        json.dump(drift_state, f, indent=4)
         
-    if drift_results["drift_detected"] or drift_results["drift_share"] >= DRIFT_THRESHOLD:
+    if drift_results["drift_detected"]:
         logger.warning(
             f"CRITICAL: Data drift detected! "
             f"{drift_results['drift_share']*100:.1f}% of features have shifted."
@@ -163,5 +241,4 @@ def run_monitor() -> bool:
         return False
 
 if __name__ == "__main__":
-    # Can be run manually or as a cron job
     run_monitor()

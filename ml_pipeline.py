@@ -15,9 +15,16 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import mlflow
 import optuna
 from typing import Tuple, Dict, Any, Optional
+
+# mlflow is optional (not installed in cloud/edge deployments)
+try:
+    import mlflow
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    mlflow = None
+    MLFLOW_AVAILABLE = False
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -49,8 +56,21 @@ def load_dataset() -> pd.DataFrame:
     if not config.DATASET_PATH.exists():
         raise FileNotFoundError(f"Dataset missing at {config.DATASET_PATH}")
     logger.info(f"Loading dataset from {config.DATASET_PATH}")
-    return pd.read_csv(config.DATASET_PATH)
-
+    
+    # 1. Load the data into a variable first
+    df = pd.read_csv(config.DATASET_PATH)
+    
+    # 2. === NEW ADDITION: Hook to learn thresholds ===
+    try:
+        import monitor_realtime
+        logger.info("📊 Learning normal operational envelope from baseline 'good data'...")
+        monitor_realtime.calculate_and_save_thresholds(df)
+    except Exception as e:
+        logger.error(f"Failed to calculate dynamic thresholds: {str(e)}")
+    # ==============================================
+    
+    # 3. Return the data to the rest of the pipeline safely
+    return df
 def preprocess_data(df: pd.DataFrame):
     """
     Cleans the input dataframe, drops leakage columns, sanitizes feature names 
@@ -234,8 +254,9 @@ def run_pipeline(incoming_data: pd.DataFrame = None) -> None:
     logger.info("=== Starting EdgeOps Gated ML Pipeline ===")
     
     # Setup tracking integrations
-    mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(config.MLFLOW_EXPERIMENT_NAME)
+    if MLFLOW_AVAILABLE:
+        mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
+        mlflow.set_experiment(config.MLFLOW_EXPERIMENT_NAME)
 
     # 1. Ingest Inbound Telemetry
     if incoming_data is not None:
@@ -379,13 +400,14 @@ def execute_final_deployment(model, encoder, X_train, X_test, y_test, metrics, h
     temp_plot_dir = config.BASE_DIR / "temp_plots"
     generate_evaluation_plots(model, X_test, y_test, str(temp_plot_dir))
 
-    # 3. Log Complete Metadata Ecosystem to MLflow Run Registry
-    with mlflow.start_run(run_name=f"Automated_Retrain_v{next_version}"):
-        mlflow.log_params(hyperparams)
-        mlflow.log_metrics(metrics)
-        mlflow.log_artifacts(bundle_path, artifact_path="model_bundle")
-        mlflow.log_artifacts(str(temp_plot_dir), artifact_path="evaluation_plots")
-        mlflow.set_tag("version", f"v{next_version}")
+    # 3. Log Complete Metadata Ecosystem to MLflow Run Registry (optional, local only)
+    if MLFLOW_AVAILABLE:
+        with mlflow.start_run(run_name=f"Automated_Retrain_v{next_version}"):
+            mlflow.log_params(hyperparams)
+            mlflow.log_metrics(metrics)
+            mlflow.log_artifacts(bundle_path, artifact_path="model_bundle")
+            mlflow.log_artifacts(str(temp_plot_dir), artifact_path="evaluation_plots")
+            mlflow.set_tag("version", f"v{next_version}")
 
     # 4. Commit Package to Local Persistent SQLite State Machine
     model_id = database.register_model_version(
@@ -397,6 +419,11 @@ def execute_final_deployment(model, encoder, X_train, X_test, y_test, metrics, h
     # 5. Automatically Promote the New Outperforming Champion to Active Status
     logger.info(f"Promoting newly generated model version {next_version} to production active status node.")
     database.promote_model_to_production(model_id)
+    try:
+        from edge_engine import engine
+        engine.reload_model()
+    except Exception as e:
+        logger.warning(f"Could not directly reload edge engine: {e}")
     logger.info(f"=== Pipeline Finished. Version {next_version} is deployed. ===")
 
 

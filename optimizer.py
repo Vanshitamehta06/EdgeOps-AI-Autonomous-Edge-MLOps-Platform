@@ -275,24 +275,10 @@ def run_optimization_cycle(force: bool = False) -> None:
         trigger_edge_reload()
         logger.info(f"🚀 Version {next_version} successfully deployed to live edge production.")
     else:
-        logger.info(f"📦 Unique but non-improving model. Preserving as an offline 'candidate'.")
-        
-        # Save data bundle to disk normally
-        bundle_path = ml_pipeline.save_model_bundle(next_version, best_model, encoder, X_train, metrics, best_params)
-        
-        candidate_id = database.register_model_version(
-            version_number=next_version,
-            model_path=bundle_path,
-            metrics=metrics
-        )
-        
-        # Force the database status flag to stay 'candidate' (skips production deployment completely)
-        with database.get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE model_versions SET status = 'candidate' WHERE id = ?", (candidate_id,))
-            conn.commit()
-            
-        logger.info(f"Saved Version {next_version} into the registry safely flagged as a candidate.")
+        # 🔥 THE NEW GATEKEEPER: Throw the bad model in the trash!
+        logger.warning(f"🗑️ Optimization failed to beat the current production score.")
+        logger.warning(f"Discarding candidate model entirely to save disk space and registry clutter.")
+        # Notice we do NOT call save_model_bundle or register_model_version here!
         
     logger.info("=== Optimizer Cycle Complete ===")
 

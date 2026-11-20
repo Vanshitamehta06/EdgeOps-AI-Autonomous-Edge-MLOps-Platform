@@ -1,0 +1,8 @@
+Threshold,Threshold_Pct,False_Alarms,Total_Clean_Batches,False_Alarm_Rate_Pct
+0.1,10%,6,30,20.0
+0.2,20%,0,30,0.0
+0.25,25%,0,30,0.0
+0.3,30%,0,30,0.0
+0.35,35%,0,30,0.0
+0.4,40%,0,30,0.0
+0.5,50%,0,30,0.0

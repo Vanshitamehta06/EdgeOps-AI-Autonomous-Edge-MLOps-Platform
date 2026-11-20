@@ -1,0 +1,11 @@
+Metric,Native_XGBoost,ONNX_Runtime_CPU
+Mean Latency (ms),2.876,0.053
+Median / p50 Latency (ms),2.454,0.044
+p90 Latency (ms),3.915,0.058
+p95 Latency (ms),4.332,0.077
+p99 Latency (ms),5.424,0.235
+Min Latency (ms),1.896,0.04
+Max Latency (ms),150.337,0.626
+Throughput (Inferences/sec),347.7,18944.0
+Artifact Size (KB),373.83,280.44
+Memory Loaded (MB),2.29,8.3

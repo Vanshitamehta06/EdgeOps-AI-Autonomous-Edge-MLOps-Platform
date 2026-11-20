@@ -1,62 +1,39 @@
-# ==========================
-# Core Backend
-# ==========================
-fastapi
-uvicorn[standard]
-pydantic
+# ==============================================================================
+# EdgeOps AI Platform — Cloud Production Requirements (Python 3.11)
+# Stripped of heavy local-only dev tools (mlflow, optuna, asyncua, test libs)
+# to ensure fast, clean builds on Render free tier.
+# ==============================================================================
 
-# ==========================
-# Machine Learning
-# ==========================
-xgboost
-scikit-learn
-pandas
-numpy
-scipy
-joblib
-seaborn 
-matplotlib
+# Core API & ASGI Web Server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+python-multipart==0.0.20
 
-# ==========================
-# Hyperparameter Optimization
-# ==========================
-optuna
+# Machine Learning & Tabular Modeling
+# Pinned for full Python 3.11 + pandas 2.1.x + numpy 1.26.x compatibility
+xgboost==2.0.3
+scikit-learn==1.4.2
+pandas==2.1.4
+numpy==1.26.4
+scipy==1.12.0
+joblib==1.3.2
+shap==0.44.1
 
-# ==========================
-# Experiment Tracking
-# ==========================
-mlflow
+# Visualization (required by edge_engine for SHAP plots)
+matplotlib==3.8.4
+seaborn==0.13.2
 
-# ==========================
-# Edge Deployment
-# ==========================
-onnx
-onnxruntime
-skl2onnx
-onnxmltools
+# ONNX Edge Runtime
+onnx==1.16.2
+onnxruntime==1.18.1
+skl2onnx==1.17.0
+onnxmltools==1.12.0
 
-# ==========================
-# Drift Detection
-# ==========================
-evidently
+# Hyperparameter Optimization (lightweight, no evidently dependency)
+optuna==3.6.1
 
-# ==========================
-# Visualization
-# ==========================
-matplotlib
-plotly
-
-# ==========================
-# System Monitoring
-# ==========================
-psutil
-
-# ==========================
-# API / HTTP
-# ==========================
-requests
-
-# ==========================
-# Utilities
-# ==========================
-python-dotenv
+# System & HTTP Utilities
+psutil==5.9.8
+requests==2.32.3
+python-dotenv==1.0.1
