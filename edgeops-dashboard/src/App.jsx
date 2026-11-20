@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname) ? `http://${window.location.hostname}:8000` : 'http://localhost:8000';
+const API_BASE_URL = 'https://edgeops-ai.onrender.com';
 const GRAFANA_PREVIEW_URL = 'http://localhost:3000/d-solo/adgvq6f/edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=dark&kiosk';
 const GRAFANA_ML_HEALTH_URL = 'http://localhost:3000/d-solo/adwk9d5/ml-health-edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=dark&kiosk';
 const GRAFANA_FULL_URL = 'http://localhost:3000/d/adgvq6f/edgeops-live?orgId=1&refresh=5s';
