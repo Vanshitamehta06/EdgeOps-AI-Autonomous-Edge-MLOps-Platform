@@ -433,167 +433,113 @@ export default function App() {
           CLEAN TOP HEADER & CONTROLS (UNCLUTTERED)
          ========================================================================= */}
       <header style={{
-        background: 'rgba(13, 19, 31, 0.85)',
+        background: 'rgba(13, 19, 31, 0.95)',
         backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
-        padding: '12px 28px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
         position: 'sticky',
         top: 0,
         zIndex: 50
       }}>
-        {/* Left: Brand & Node Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
-            width: '36px',
-            height: '36px',
-            borderRadius: '9px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.2rem',
-            boxShadow: '0 0 14px rgba(56, 189, 248, 0.3)'
-          }}>
-            ⚡
+        {/* ── ROW 1: Brand + Status + Controls ── */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 28px',
+          borderBottom: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
+              width: '34px', height: '34px', borderRadius: '9px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.1rem', boxShadow: '0 0 14px rgba(56,189,248,0.3)', flexShrink: 0
+            }}>⚡</div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: '800', color: '#ffffff' }}>EdgeOps AI</span>
+                <span style={{ background: '#0369a122', color: '#38bdf8', fontSize: '0.6rem', fontWeight: '700', padding: '2px 7px', borderRadius: '4px', border: '1px solid #0284c744' }}>
+                  Siemens S7-300 Edge
+                </span>
+              </div>
+              <div style={{ fontSize: '0.68rem', color: '#475569', marginTop: '1px' }}>
+                Autonomous Closed-Loop Predictive Maintenance · ONNX &lt; 0.1ms
+              </div>
+            </div>
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#ffffff' }}>
-                EdgeOps AI
-              </span>
-              <span style={{ background: '#0369a133', color: '#38bdf8', fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', border: '1px solid #0284c744' }}>
-                Siemens S7-300 Edge
+
+          {/* Right controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Status pill */}
+            <div style={{
+              background: '#0f172a', border: '1px solid #1e293b', borderRadius: '20px',
+              padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '7px', fontSize: '0.72rem'
+            }}>
+              <span className={apiStatus ? 'led-green' : 'led-red'} style={{ width: '7px', height: '7px' }}></span>
+              <span style={{ fontWeight: '700', color: apiStatus ? '#4ade80' : '#f87171' }}>
+                {apiStatus ? `ONLINE · v${deployState.current_model_id || 1} · ${liveData.edge_mode}` : 'OFFLINE'}
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-              Autonomous Closed-Loop Predictive Maintenance • ONNX &lt; 0.1ms
-            </div>
+
+            {/* Live Stream */}
+            <button onClick={toggleStreaming} disabled={isLoading} style={{
+              background: isStreaming ? '#dc2626' : '#0284c7', color: 'white', border: 'none',
+              borderRadius: '7px', padding: '5px 13px', fontSize: '0.72rem', fontWeight: '700',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
+            }}>
+              <span>{isStreaming ? '⏹' : '▶'}</span>
+              <span>{isStreaming ? 'Stop' : 'Live Stream'}</span>
+            </button>
+
+            {/* Siren */}
+            <button onClick={() => setIsBuzzerMuted(!isBuzzerMuted)} title={isBuzzerMuted ? 'Siren Muted' : 'Siren Armed'} style={{
+              background: '#1e293b', color: isBuzzerMuted ? '#64748b' : '#ef4444',
+              border: '1px solid #334155', borderRadius: '7px', padding: '5px 10px', fontSize: '0.8rem', cursor: 'pointer'
+            }}>
+              {isBuzzerMuted ? '🔕' : '🔔'}
+            </button>
+
+            {/* Rollback */}
+            <button onClick={() => setShowConfirmModal('rollback')} disabled={isLoading} style={{
+              background: 'transparent', color: '#f87171', border: '1px solid #ef444455',
+              borderRadius: '7px', padding: '5px 11px', fontSize: '0.72rem', fontWeight: '600', cursor: 'pointer'
+            }}>⏪ Rollback</button>
           </div>
         </div>
 
-        {/* Center: Segmented Navigation Pills */}
+        {/* ── ROW 2: Navigation Tabs ── */}
         <nav style={{
-          display: 'flex',
-          background: '#0f172a',
-          padding: '4px',
-          borderRadius: '10px',
-          border: '1px solid #1e293b'
+          display: 'flex', alignItems: 'center', gap: '2px',
+          padding: '6px 28px', overflowX: 'auto'
         }}>
           {[
-            { id: 'cockpit', label: 'Cockpit', icon: '⚡' },
-            { id: 'twin', label: 'Digital Twin', icon: '🌀' },
-            { id: 'explain', label: 'Explainable AI & RUL', icon: '🔍' },
-            { id: 'shadow', label: 'Shadow Canary (MLOps)', icon: '🧪' },
-            { id: 'plc', label: 'S7 DB1 Gateway', icon: '📡' },
-            { id: 'observability', label: 'Observability', icon: '📊' },
-            { id: 'mas', label: 'Multi-Agent (MAS)', icon: '🤖' }
+            { id: 'cockpit',       label: 'Cockpit',        icon: '⚡' },
+            { id: 'twin',          label: 'Digital Twin',   icon: '🌀' },
+            { id: 'explain',       label: 'Explainable AI', icon: '🔍' },
+            { id: 'shadow',        label: 'Shadow Canary',  icon: '🧪' },
+            { id: 'plc',           label: 'S7 DB1 Gateway', icon: '📡' },
+            { id: 'observability', label: 'Observability',  icon: '📊' },
+            { id: 'mas',           label: 'Multi-Agent',    icon: '🤖' }
           ].map(tab => {
             const isActive = activeTab === tab.id;
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  background: isActive ? '#0284c7' : 'transparent',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  border: 'none',
-                  borderRadius: '7px',
-                  padding: '7px 14px',
-                  fontSize: '0.8rem',
-                  fontWeight: isActive ? '700' : '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.15s ease'
-                }}
-              >
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                background: isActive ? '#0284c7' : 'transparent',
+                color: isActive ? '#ffffff' : '#64748b',
+                border: 'none', borderRadius: '7px',
+                padding: '6px 16px', fontSize: '0.78rem',
+                fontWeight: isActive ? '700' : '500',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                transition: 'all 0.15s ease'
+              }}>
                 <span>{tab.icon}</span>
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </nav>
-
-        {/* Right: Clean Quick Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Node Health Pill */}
-          <div style={{
-            background: '#111827',
-            border: '1px solid #1f2937',
-            borderRadius: '20px',
-            padding: '5px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '0.75rem'
-          }}>
-            <span className={apiStatus ? "led-green" : "led-red"} style={{ width: '8px', height: '8px' }}></span>
-            <span style={{ fontWeight: '600', color: apiStatus ? '#4ade80' : '#f87171' }}>
-              {apiStatus ? `ONLINE (v${deployState.current_model_id || 1} • ${liveData.edge_mode})` : 'OFFLINE'}
-            </span>
-          </div>
-
-          {/* Stream Toggle */}
-          <button
-            onClick={toggleStreaming}
-            disabled={isLoading}
-            style={{
-              background: isStreaming ? '#dc2626' : '#0284c7',
-              color: 'white',
-              border: 'none',
-              borderRadius: '7px',
-              padding: '6px 14px',
-              fontSize: '0.75rem',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>{isStreaming ? '⏹' : '▶'}</span>
-            <span>{isStreaming ? 'Stop Stream' : 'Live Stream'}</span>
-          </button>
-
-          {/* Siren Mute Toggle */}
-          <button
-            onClick={() => setIsBuzzerMuted(!isBuzzerMuted)}
-            style={{
-              background: '#1e293b',
-              color: isBuzzerMuted ? '#64748b' : '#ef4444',
-              border: '1px solid #334155',
-              borderRadius: '7px',
-              padding: '6px 10px',
-              fontSize: '0.8rem',
-              cursor: 'pointer'
-            }}
-            title={isBuzzerMuted ? "Siren is Muted" : "Siren is Armed"}
-          >
-            {isBuzzerMuted ? '🔕' : '🔔'}
-          </button>
-
-          {/* Rollback Action */}
-          <button
-            onClick={() => setShowConfirmModal('rollback')}
-            disabled={isLoading}
-            style={{
-              background: 'transparent',
-              color: '#f87171',
-              border: '1px solid #ef444455',
-              borderRadius: '7px',
-              padding: '6px 12px',
-              fontSize: '0.75rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            ⏪ Rollback
-          </button>
-        </div>
       </header>
 
       {/* =========================================================================
