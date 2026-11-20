@@ -9,6 +9,7 @@ computing local TreeSHAP feature attributions, and estimating Remaining Useful L
 
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
@@ -105,12 +106,22 @@ class EdgeEngine:
             opts.intra_op_num_threads = 1
             if self.edge_mode == "INT8_OPTIMIZED":
                 opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            self.session = ort.InferenceSession(
-                onnx_path, 
-                sess_options=opts,
-                providers=["CPUExecutionProvider"]
-            )
-            self.input_name = self.session.get_inputs()[0].name
+            # Guard: skip ONNX if file is empty placeholder (conversion failed gracefully)
+            onnx_file_size = os.path.getsize(onnx_path) if os.path.exists(onnx_path) else 0
+            if onnx_file_size > 100:
+                try:
+                    self.session = ort.InferenceSession(
+                        onnx_path,
+                        sess_options=opts,
+                        providers=["CPUExecutionProvider"]
+                    )
+                    self.input_name = self.session.get_inputs()[0].name
+                except Exception as onnx_err:
+                    logger.warning(f"ONNX session load failed (will use XGBoost pkl): {onnx_err}")
+                    self.session = None
+            else:
+                logger.warning("ONNX model file empty/missing — falling back to XGBoost pkl inference")
+                self.session = None
             self.current_version = version_number
 
             # 4. Attempt to load native XGBoost model for C++ TreeSHAP acceleration
@@ -288,30 +299,36 @@ class EdgeEngine:
 
     def predict(self, raw_telemetry: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Processes incoming raw telemetry, executes ONNX inference,
+        Processes incoming raw telemetry, executes ONNX inference (or XGBoost pkl fallback),
         and computes root-cause physics diagnostics.
         """
-        if self.session is None:
+        if self.session is None and self.xgb_model is None:
             raise RuntimeError("Edge Engine has no model loaded. Cannot execute prediction.")
 
         t_start = time.perf_counter()
         X_infer, clean_telemetry = self._preprocess(raw_telemetry)
 
-        # Execute ONNX Inference
-        ort_inputs = {self.input_name: X_infer}
-        ort_outs = self.session.run(None, ort_inputs)
-        latency_ms = (time.perf_counter() - t_start) * 1000.0
-        if self.edge_mode == "INT8_OPTIMIZED":
-            latency_ms = min(latency_ms, 0.038)
-        
-        prediction = int(ort_outs[0][0])
-        probabilities = ort_outs[1][0]
-        if isinstance(probabilities, dict):
-            probability_of_failure = float(probabilities.get(1, 0.0))
-        elif isinstance(probabilities, (list, np.ndarray)):
-            probability_of_failure = float(probabilities[1]) if len(probabilities) > 1 else float(probabilities[0])
+        if self.session is not None:
+            # Primary: ONNX Runtime inference
+            ort_inputs = {self.input_name: X_infer}
+            ort_outs = self.session.run(None, ort_inputs)
+            latency_ms = (time.perf_counter() - t_start) * 1000.0
+            if self.edge_mode == "INT8_OPTIMIZED":
+                latency_ms = min(latency_ms, 0.038)
+            prediction = int(ort_outs[0][0])
+            probabilities = ort_outs[1][0]
+            if isinstance(probabilities, dict):
+                probability_of_failure = float(probabilities.get(1, 0.0))
+            elif isinstance(probabilities, (list, np.ndarray)):
+                probability_of_failure = float(probabilities[1]) if len(probabilities) > 1 else float(probabilities[0])
+            else:
+                probability_of_failure = float(probabilities)
         else:
-            probability_of_failure = float(probabilities)
+            # Fallback: XGBoost pkl inference (when ONNX conversion failed on cloud)
+            proba = self.xgb_model.predict_proba(X_infer)[0]
+            prediction = int(np.argmax(proba))
+            probability_of_failure = float(proba[1]) if len(proba) > 1 else float(proba[0])
+            latency_ms = (time.perf_counter() - t_start) * 1000.0
 
         # Physics Root Cause Diagnostics
         root_cause = "None"
