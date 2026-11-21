@@ -1575,65 +1575,69 @@ export default function App() {
               background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
               border: '1px solid #3b82f644',
               borderRadius: '14px',
-              padding: '22px 26px',
+              padding: '18px 22px',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              flexDirection: 'column',
+              gap: '12px',
               boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
             }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '1.5rem' }}>🤖</span>
-                  <div style={{ fontSize: '1.25rem', fontWeight: '800', color: '#f8fafc', letterSpacing: '-0.02em' }}>
-                    AUTONOMOUS MULTI-AGENT SYSTEM (CREWAI + ADK)
-                  </div>
-                  <span style={{ background: '#0284c7', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '700' }}>
-                    DUAL FRAMEWORK
-                  </span>
-                  <span style={{ background: '#7c3aed', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '700' }}>
-                    MCP PROTOCOL
-                  </span>
+              {/* Row 1: Icon + Title + Badges */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '1.4rem' }}>🤖</span>
+                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#f8fafc', letterSpacing: '-0.02em' }}>
+                  AUTONOMOUS MULTI-AGENT SYSTEM (CREWAI + ADK)
                 </div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '6px' }}>
-                  Hybrid Hierarchical-Parallel Architecture • Model Context Protocol (MCP) • Blackboard Shared State • SIL-3 Interlocks
-                </div>
+                <span style={{ background: '#0284c7', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.62rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                  DUAL FRAMEWORK
+                </span>
+                <span style={{ background: '#7c3aed', color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.62rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                  MCP PROTOCOL
+                </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button
-                  onClick={handleRunMasBenchmark}
-                  disabled={isMasRunning}
-                  style={{
-                    background: isMasRunning ? '#475569' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                    color: 'white',
-                    border: 'none',
+              {/* Row 2: Subtitle + Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                  Hybrid Hierarchical-Parallel Architecture • Model Context Protocol (MCP) • Blackboard Shared State • SIL-3 Interlocks
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <button
+                    onClick={handleRunMasBenchmark}
+                    disabled={isMasRunning}
+                    style={{
+                      background: isMasRunning ? '#475569' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      cursor: isMasRunning ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                    }}
+                  >
+                    <span>{isMasRunning ? '⏳' : '⚡'}</span>
+                    <span>{isMasRunning ? 'Executing 100 Runs...' : 'Run 100-Cycle Benchmark'}</span>
+                  </button>
+
+                  <div style={{
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid #334155',
                     borderRadius: '8px',
-                    padding: '10px 18px',
-                    fontSize: '0.8rem',
-                    fontWeight: '700',
-                    cursor: isMasRunning ? 'not-allowed' : 'pointer',
+                    padding: '7px 12px',
+                    fontSize: '0.72rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
-                  }}
-                >
-                  <span>{isMasRunning ? '⏳' : '⚡'}</span>
-                  <span>{isMasRunning ? 'Executing 100 Runs...' : 'Run 100-Cycle Benchmark'}</span>
-                </button>
-
-                <div style={{
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                  padding: '8px 14px',
-                  fontSize: '0.75rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: '#94a3b8'
-                }}>
-                  <span className="mono" style={{ color: '#38bdf8' }}>python agents/mas_engine.py</span>
+                    gap: '5px',
+                    color: '#94a3b8',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    <span className="mono" style={{ color: '#38bdf8' }}>python agents/mas_engine.py</span>
+                  </div>
                 </div>
               </div>
             </div>
