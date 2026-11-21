@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = 'https://edgeops-ai.onrender.com';
-const GRAFANA_PREVIEW_URL = 'http://localhost:3000/d-solo/adgvq6f/edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=dark&kiosk';
-const GRAFANA_ML_HEALTH_URL = 'http://localhost:3000/d-solo/adwk9d5/ml-health-edgeops-live?orgId=1&from=now-30m&to=now&timezone=browser&panelId=panel-1&theme=dark&kiosk';
-const GRAFANA_FULL_URL = 'http://localhost:3000/d/adgvq6f/edgeops-live?orgId=1&refresh=5s';
-const MLFLOW_URL = 'http://localhost:5000';
+const GRAFANA_PREVIEW_URL = 'https://largelaurel3011.grafana.net/public-dashboards/21c2a8f33e6d410fb03a499fe44a7321?viewPanel=panel-1';
+const GRAFANA_ML_HEALTH_URL = 'https://largelaurel3011.grafana.net/public-dashboards/21c2a8f33e6d410fb03a499fe44a7321?viewPanel=panel-2';
+const GRAFANA_FULL_URL = 'https://largelaurel3011.grafana.net/public-dashboards/21c2a8f33e6d410fb03a499fe44a7321';
+const MLFLOW_URL = 'https://edgeops-ai.onrender.com/docs';
 
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 const audioCtx = AudioContextClass ? new AudioContextClass() : null;
@@ -1489,56 +1489,43 @@ export default function App() {
               </div>
             </div>
 
-            {/* Live Telemetry Metrics — replaces local Grafana iframes on cloud */}
+            {/* Grafana Cloud Live Panels */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
 
-              {/* Panel 1: Live Sensor Telemetry */}
-              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>📡 Live Sensor Telemetry</span>
-                  <span style={{ background: '#064e3b', color: '#6ee7b7', fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>LIVE</span>
+              {/* Panel 1: CPU + RAM time series */}
+              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>📈 Live Telemetry — CPU & RAM</span>
+                  <a href={GRAFANA_FULL_URL} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontSize: '0.75rem', textDecoration: 'none' }}>Open ↗</a>
                 </div>
-                {[
-                  { label: 'Air Temperature', value: `${(liveData.telemetry['Air temperature [K]'] || 298.1).toFixed(1)} K`, color: '#38bdf8', pct: Math.min(100, ((liveData.telemetry['Air temperature [K]'] || 298) - 290) / 20 * 100) },
-                  { label: 'Process Temperature', value: `${(liveData.telemetry['Process temperature [K]'] || 308.6).toFixed(1)} K`, color: '#f59e0b', pct: Math.min(100, ((liveData.telemetry['Process temperature [K]'] || 308) - 300) / 20 * 100) },
-                  { label: 'Rotational Speed', value: `${Math.round(liveData.telemetry['Rotational speed [rpm]'] || 1551)} RPM`, color: '#a855f7', pct: Math.min(100, (liveData.telemetry['Rotational speed [rpm]'] || 1551) / 3000 * 100) },
-                  { label: 'Motor Torque', value: `${(liveData.telemetry['Torque [Nm]'] || 42.8).toFixed(1)} Nm`, color: '#ef4444', pct: Math.min(100, (liveData.telemetry['Torque [Nm]'] || 42.8) / 80 * 100) },
-                  { label: 'Tool Wear', value: `${(liveData.telemetry['Tool wear [min]'] || 15).toFixed(0)} min`, color: '#10b981', pct: Math.min(100, (liveData.telemetry['Tool wear [min]'] || 15) / 220 * 100) },
-                ].map(m => (
-                  <div key={m.label}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
-                      <span style={{ color: '#94a3b8' }}>{m.label}</span>
-                      <span style={{ fontWeight: '700', color: m.color, fontFamily: 'monospace' }}>{m.value}</span>
-                    </div>
-                    <div style={{ background: '#0f172a', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                      <div style={{ width: `${m.pct}%`, height: '100%', background: m.color, borderRadius: '4px', transition: 'width 0.5s ease' }}></div>
-                    </div>
-                  </div>
-                ))}
+                <div style={{ flex: 1, borderRadius: '8px', overflow: 'hidden', background: '#0a0e17', minHeight: '280px' }}>
+                  <iframe
+                    src={GRAFANA_PREVIEW_URL}
+                    width="100%"
+                    height="300"
+                    frameBorder="0"
+                    title="Live Telemetry"
+                    style={{ display: 'block' }}
+                  ></iframe>
+                </div>
               </div>
 
-              {/* Panel 2: ML Pipeline Health */}
-              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: '700', fontSize: '0.9rem' }}>🧠 ML Pipeline Health</span>
-                  <span style={{ background: '#1e1b4b', color: '#a5b4fc', fontSize: '0.65rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>CLOUD NATIVE</span>
+              {/* Panel 2: Drift + Reliability time series */}
+              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>🧠 ML Pipeline Health — Drift & Reliability</span>
+                  <a href={GRAFANA_FULL_URL} target="_blank" rel="noreferrer" style={{ color: '#f59e0b', fontSize: '0.75rem', textDecoration: 'none' }}>Open ↗</a>
                 </div>
-                {[
-                  { label: 'Active Model Version', value: `v${deployState.current_model_id || 1}`, sub: 'XGBoost + ONNX FP32', color: '#38bdf8' },
-                  { label: 'Edge Inference Latency', value: `${(liveData.prediction.latency_ms || 0.044).toFixed(3)} ms`, sub: 'CPU · ONNXRuntime', color: '#10b981' },
-                  { label: 'Failure Probability', value: `${((liveData.prediction.probability || 0.0016) * 100).toFixed(2)}%`, sub: liveData.prediction.root_cause || 'Nominal', color: liveData.prediction.is_anomaly ? '#ef4444' : '#10b981' },
-                  { label: 'Drift Detection', value: `${((driftState.drift_share || 0) * 100).toFixed(1)}%`, sub: driftState.drift_detected ? '⚠ Drift Detected' : '✓ No Drift', color: driftState.drift_detected ? '#f59e0b' : '#10b981' },
-                  { label: 'CPU / RAM Usage', value: `${(liveData.hardware.cpu_percent || 21).toFixed(0)}% / ${(liveData.hardware.ram_percent || 46).toFixed(0)}%`, sub: liveData.hardware.runtime || 'ONNX Runtime', color: '#a855f7' },
-                  { label: 'Shadow Concordance', value: `${(liveData.shadow.concordance_rate || 99.4).toFixed(1)}%`, sub: `${liveData.shadow.total_evaluations || 120} evaluations`, color: '#f59e0b' },
-                ].map(m => (
-                  <div key={m.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#0f172a', borderRadius: '8px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{m.label}</div>
-                      <div style={{ fontSize: '0.68rem', color: '#475569', marginTop: '1px' }}>{m.sub}</div>
-                    </div>
-                    <span style={{ fontFamily: 'monospace', fontWeight: '800', fontSize: '0.9rem', color: m.color }}>{m.value}</span>
-                  </div>
-                ))}
+                <div style={{ flex: 1, borderRadius: '8px', overflow: 'hidden', background: '#0a0e17', minHeight: '280px' }}>
+                  <iframe
+                    src={GRAFANA_ML_HEALTH_URL}
+                    width="100%"
+                    height="300"
+                    frameBorder="0"
+                    title="ML Health"
+                    style={{ display: 'block' }}
+                  ></iframe>
+                </div>
               </div>
             </div>
 
