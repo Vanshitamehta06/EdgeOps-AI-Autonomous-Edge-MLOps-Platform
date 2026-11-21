@@ -1441,96 +1441,128 @@ export default function App() {
         )}
 
         {/* -----------------------------------------------------------------------
-            TAB 6: OBSERVABILITY & GRAFANA
+            TAB 6: OBSERVABILITY — Native Grafana-style SVG Charts
            ----------------------------------------------------------------------- */}
-        {activeTab === 'observability' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Native SVG Hardware Performance Timeline */}
-            <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>📈 Edge Hardware Resource Usage</span>
-                <div style={{ display: 'flex', gap: '14px', fontSize: '0.75rem', color: '#94a3b8' }}>
-                  <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#38bdf8', marginRight: '4px' }}></span>CPU %</span>
-                  <span><span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#a855f7', marginRight: '4px' }}></span>RAM %</span>
-                </div>
-              </div>
+        {activeTab === 'observability' && (() => {
+          const W = 800, H = 220, PAD = { top: 16, right: 20, bottom: 36, left: 44 };
+          const iW = W - PAD.left - PAD.right;
+          const iH = H - PAD.top - PAD.bottom;
+          const yTicks = [0, 25, 50, 75, 100];
 
-              <div style={{ width: '100%', height: '180px', background: '#0a0e17', borderRadius: '8px', padding: '8px' }}>
-                {systemMetricsHistory.length < 2 ? (
-                  <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.8rem' }}>
-                    Streaming data to populate hardware timeline...
+          const GrafanaChart = ({ title, titleColor, series, noDataMsg, openUrl }) => {
+            const hasData = systemMetricsHistory.length >= 2;
+            const pts = (key) => systemMetricsHistory.map((m, i) => {
+              const x = PAD.left + (i / Math.max(systemMetricsHistory.length - 1, 1)) * iW;
+              const y = PAD.top + iH - (Math.min(100, Math.max(0, m[key] || 0)) / 100) * iH;
+              return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ');
+            const area = (key, color) => {
+              if (!hasData) return null;
+              const pointArr = systemMetricsHistory.map((m, i) => ({
+                x: PAD.left + (i / Math.max(systemMetricsHistory.length - 1, 1)) * iW,
+                y: PAD.top + iH - (Math.min(100, Math.max(0, m[key] || 0)) / 100) * iH
+              }));
+              const first = pointArr[0], last = pointArr[pointArr.length - 1];
+              const bottom = PAD.top + iH;
+              const polyPts = pointArr.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+              return <polygon points={`${first.x},${bottom} ${polyPts} ${last.x},${bottom}`} fill={color} fillOpacity="0.12" />;
+            };
+            const lastTs = systemMetricsHistory.length > 0 ? systemMetricsHistory[systemMetricsHistory.length - 1]?.timestamp : '';
+            const fmtTime = (ts) => { try { const d = new Date(ts); return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`; } catch { return ''; } };
+            const xLabels = systemMetricsHistory.length >= 2
+              ? [0, Math.floor(systemMetricsHistory.length / 4), Math.floor(systemMetricsHistory.length / 2), Math.floor(3 * systemMetricsHistory.length / 4), systemMetricsHistory.length - 1]
+                .map(i => ({ i, ts: systemMetricsHistory[i]?.timestamp }))
+              : [];
+
+            return (
+              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '0', overflow: 'hidden' }}>
+                {/* Panel title bar */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #1e293b' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.85rem', color: '#f1f5f9' }}>{title}</span>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.65rem', color: '#475569' }}>Last 30 min</span>
+                    <a href={openUrl} target="_blank" rel="noreferrer" style={{ color: titleColor, fontSize: '0.72rem', textDecoration: 'none' }}>Grafana ↗</a>
                   </div>
-                ) : (
-                  <svg width="100%" height="100%" viewBox="0 0 800 180" preserveAspectRatio="none">
-                    <line x1="0" y1="90" x2="800" y2="90" stroke="#1f2937" strokeDasharray="4 4" />
-                    <polyline
-                      fill="none"
-                      stroke="#38bdf8"
-                      strokeWidth="2"
-                      points={systemMetricsHistory.map((m, idx) => {
-                        const x = (idx / (systemMetricsHistory.length - 1)) * 800;
-                        const y = 180 - (Math.min(100, m.cpu_usage || 0) / 100) * 170;
-                        return `${x},${y}`;
-                      }).join(' ')}
-                    />
-                    <polyline
-                      fill="none"
-                      stroke="#a855f7"
-                      strokeWidth="2"
-                      points={systemMetricsHistory.map((m, idx) => {
-                        const x = (idx / (systemMetricsHistory.length - 1)) * 800;
-                        const y = 180 - (Math.min(100, m.ram_usage || 0) / 100) * 170;
-                        return `${x},${y}`;
-                      }).join(' ')}
-                    />
+                </div>
+                {/* SVG Chart */}
+                <div style={{ background: '#0d1117', padding: '0 0 4px 0' }}>
+                  <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+                    {/* Grid lines + Y labels */}
+                    {yTicks.map(v => {
+                      const y = PAD.top + iH - (v / 100) * iH;
+                      return (
+                        <g key={v}>
+                          <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1e293b" strokeDasharray="4 3" />
+                          <text x={PAD.left - 6} y={y + 4} textAnchor="end" fill="#475569" fontSize="11">{v}</text>
+                        </g>
+                      );
+                    })}
+                    {/* Area fills */}
+                    {series.map(s => area(s.key, s.color))}
+                    {/* Lines */}
+                    {hasData && series.map(s => (
+                      <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={pts(s.key)} />
+                    ))}
+                    {/* No data msg */}
+                    {!hasData && (
+                      <text x={W / 2} y={H / 2} textAnchor="middle" fill="#475569" fontSize="13">{noDataMsg}</text>
+                    )}
+                    {/* X axis time labels */}
+                    {xLabels.map(({ i, ts }) => (
+                      <text key={i} x={PAD.left + (i / Math.max(systemMetricsHistory.length - 1, 1)) * iW} y={H - 6} textAnchor="middle" fill="#475569" fontSize="10">{fmtTime(ts)}</text>
+                    ))}
                   </svg>
-                )}
+                </div>
+                {/* Legend */}
+                <div style={{ display: 'flex', gap: '20px', padding: '8px 16px', borderTop: '1px solid #1e293b' }}>
+                  {series.map(s => (
+                    <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#94a3b8' }}>
+                      <div style={{ width: '20px', height: '3px', background: s.color, borderRadius: '2px' }}></div>
+                      <span>{s.label}</span>
+                      {hasData && <span style={{ color: s.color, fontWeight: '700', fontFamily: 'monospace' }}>
+                        {systemMetricsHistory[systemMetricsHistory.length - 1]?.[s.key]?.toFixed(1) ?? '--'}%
+                      </span>}
+                    </div>
+                  ))}
+                </div>
               </div>
+            );
+          };
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Info banner */}
+              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '10px', padding: '12px 18px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.78rem', color: '#64748b' }}>
+                <span>📊</span>
+                <span>Live time-series charts — data populates when <strong style={{ color: '#38bdf8' }}>▶ Live Stream</strong> is active. Click <strong style={{ color: '#f59e0b' }}>Grafana ↗</strong> to open the full Grafana Cloud dashboard.</span>
+              </div>
+
+              {/* Chart 1: CPU + RAM */}
+              <GrafanaChart
+                title="time_series_edgeops_live"
+                titleColor="#73BF69"
+                openUrl={GRAFANA_FULL_URL}
+                noDataMsg="No data — start Live Stream to populate"
+                series={[
+                  { key: 'cpu_usage', label: 'CPU Usage (%)', color: '#73BF69' },
+                  { key: 'ram_usage', label: 'RAM Usage (%)', color: '#FADE2A' }
+                ]}
+              />
+
+              {/* Chart 2: Drift + Reliability */}
+              <GrafanaChart
+                title="ml_health_edgeops_live"
+                titleColor="#73BF69"
+                openUrl={GRAFANA_FULL_URL}
+                noDataMsg="No data — start Live Stream to populate"
+                series={[
+                  { key: 'drift_score', label: 'Data Drift Share (%)', color: '#73BF69' },
+                  { key: 'reliability_score', label: 'Node Reliability (%)', color: '#FADE2A' }
+                ]}
+              />
             </div>
-
-            {/* Grafana Cloud Live Panels */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
-              {/* Panel 1: CPU + RAM time series */}
-              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>📈 Live Telemetry — CPU & RAM</span>
-                  <a href={GRAFANA_FULL_URL} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontSize: '0.75rem', textDecoration: 'none' }}>Open ↗</a>
-                </div>
-                <div style={{ flex: 1, borderRadius: '8px', overflow: 'hidden', background: '#0a0e17', minHeight: '280px' }}>
-                  <iframe
-                    src={GRAFANA_PREVIEW_URL}
-                    width="100%"
-                    height="300"
-                    frameBorder="0"
-                    title="Live Telemetry"
-                    style={{ display: 'block' }}
-                  ></iframe>
-                </div>
-              </div>
-
-              {/* Panel 2: Drift + Reliability time series */}
-              <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>🧠 ML Pipeline Health — Drift & Reliability</span>
-                  <a href={GRAFANA_FULL_URL} target="_blank" rel="noreferrer" style={{ color: '#f59e0b', fontSize: '0.75rem', textDecoration: 'none' }}>Open ↗</a>
-                </div>
-                <div style={{ flex: 1, borderRadius: '8px', overflow: 'hidden', background: '#0a0e17', minHeight: '280px' }}>
-                  <iframe
-                    src={GRAFANA_ML_HEALTH_URL}
-                    width="100%"
-                    height="300"
-                    frameBorder="0"
-                    title="ML Health"
-                    style={{ display: 'block' }}
-                  ></iframe>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        )}
+          );
+        })()}
 
         {/* -----------------------------------------------------------------------
             TAB 7: MULTI-AGENT SYSTEM (MAS) (CREWAI + ADK)
