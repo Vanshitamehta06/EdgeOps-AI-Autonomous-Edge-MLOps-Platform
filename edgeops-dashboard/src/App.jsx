@@ -1451,16 +1451,16 @@ export default function App() {
 
           const GrafanaChart = ({ title, titleColor, series, noDataMsg, openUrl }) => {
             const hasData = systemMetricsHistory.length >= 2;
-            const pts = (key) => systemMetricsHistory.map((m, i) => {
+            const pts = (key, scale = 1) => systemMetricsHistory.map((m, i) => {
               const x = PAD.left + (i / Math.max(systemMetricsHistory.length - 1, 1)) * iW;
-              const y = PAD.top + iH - (Math.min(100, Math.max(0, m[key] || 0)) / 100) * iH;
+              const y = PAD.top + iH - (Math.min(100, Math.max(0, (m[key] || 0) * scale)) / 100) * iH;
               return `${x.toFixed(1)},${y.toFixed(1)}`;
             }).join(' ');
-            const area = (key, color) => {
+            const area = (key, color, scale = 1) => {
               if (!hasData) return null;
               const pointArr = systemMetricsHistory.map((m, i) => ({
                 x: PAD.left + (i / Math.max(systemMetricsHistory.length - 1, 1)) * iW,
-                y: PAD.top + iH - (Math.min(100, Math.max(0, m[key] || 0)) / 100) * iH
+                y: PAD.top + iH - (Math.min(100, Math.max(0, (m[key] || 0) * scale)) / 100) * iH
               }));
               const first = pointArr[0], last = pointArr[pointArr.length - 1];
               const bottom = PAD.top + iH;
@@ -1498,10 +1498,10 @@ export default function App() {
                       );
                     })}
                     {/* Area fills */}
-                    {series.map(s => area(s.key, s.color))}
+                    {series.map(s => area(s.key, s.color, s.scale || 1))}
                     {/* Lines */}
                     {hasData && series.map(s => (
-                      <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={pts(s.key)} />
+                      <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={pts(s.key, s.scale || 1)} />
                     ))}
                     {/* No data msg */}
                     {!hasData && (
@@ -1520,7 +1520,7 @@ export default function App() {
                       <div style={{ width: '20px', height: '3px', background: s.color, borderRadius: '2px' }}></div>
                       <span>{s.label}</span>
                       {hasData && <span style={{ color: s.color, fontWeight: '700', fontFamily: 'monospace' }}>
-                        {systemMetricsHistory[systemMetricsHistory.length - 1]?.[s.key]?.toFixed(1) ?? '--'}%
+                        {((systemMetricsHistory[systemMetricsHistory.length - 1]?.[s.key] || 0) * (s.scale || 1)).toFixed(1)}%
                       </span>}
                     </div>
                   ))}
@@ -1556,8 +1556,8 @@ export default function App() {
                 openUrl={GRAFANA_FULL_URL}
                 noDataMsg="No data — start Live Stream to populate"
                 series={[
-                  { key: 'drift_score', label: 'Data Drift Share (%)', color: '#73BF69' },
-                  { key: 'reliability_score', label: 'Node Reliability (%)', color: '#FADE2A' }
+                  { key: 'drift_score', label: 'Data Drift Share (%)', color: '#73BF69', scale: 100 },
+                  { key: 'reliability_score', label: 'Node Reliability (%)', color: '#FADE2A', scale: 1 }
                 ]}
               />
             </div>
